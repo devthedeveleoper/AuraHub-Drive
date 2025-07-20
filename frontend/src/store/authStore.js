@@ -6,11 +6,13 @@ const useAuthStore = create(
     (set) => ({
       user: null,
       isAuthenticated: false,
-      setUser: (userData) => set({ user: userData, isAuthenticated: true }),
-      logout: () => set({ user: null, isAuthenticated: false }),
+      isLoading: true, // <-- Add this: true by default
+      setUser: (userData) => set({ user: userData, isAuthenticated: true, isLoading: false }),
+      logout: () => set({ user: null, isAuthenticated: false, isLoading: false }),
+      stopLoading: () => set({ isLoading: false }), // <-- Add this
     }),
     {
-      name: 'auth-storage', // Name for the item in localStorage
+      name: 'auth-storage',
     }
   )
 );

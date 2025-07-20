@@ -8,6 +8,21 @@ const { v4: uuidv4 } = require('uuid'); // For generating unique folder names
 const User = require('../models/User');
 const { createFolder } = require('../services/videoService');
 
+// --- GitHub Authentication Routes ---
+
+// 1. Initial request to GitHub
+router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
+
+// 2. GitHub callback URL
+router.get(
+  '/github/callback',
+  passport.authenticate('github', { failureRedirect: 'http://localhost:5173/login' }),
+  (req, res) => {
+    // Successful authentication, redirect to the frontend homepage.
+    res.redirect('http://localhost:5173');
+  }
+);
+
 // --- Register Route ---
 router.post('/register', async (req, res) => {
   const { name, email, password, password2 } = req.body;
@@ -85,11 +100,37 @@ router.post('/login', (req, res, next) => {
 
 
 // --- Logout Route ---
-router.post('/logout', (req, res) => {
+router.post('/logout', (req, res, next) => {
+
   req.logout(function(err) {
-    if (err) { return next(err); }
-    res.json({ msg: 'Successfully logged out' });
+    if (err) {
+      console.error('Error from req.logout():', err);
+      return next(err);
+    }
+
+    req.session.destroy(err => {
+      if (err) {
+        console.error('Error destroying session:', err);
+        return res.status(500).json({ msg: 'Failed to destroy session.' });
+      }
+      // Ensure the correct cookie name is used
+      res.clearCookie('aurahub.sid');
+      return res.status(200).json({ msg: 'Logout successful.' });
+    });
   });
+});
+
+// --- Session Management Route ---
+
+// "Me" endpoint to get current user data
+router.get('/me', (req, res) => {
+  if (req.isAuthenticated()) {
+    // If the user is authenticated, send back their data
+    res.json(req.user);
+  } else {
+    // Otherwise, send a 401 Unauthorized status
+    res.status(401).json({ msg: 'Not authenticated' });
+  }
 });
 
 
