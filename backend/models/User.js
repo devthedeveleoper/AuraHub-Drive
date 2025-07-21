@@ -17,13 +17,11 @@ const UserSchema = new mongoose.Schema({
   githubId: {
     type: String,
   },
-  // --- Add this new field ---
   streamtapeFolderId: {
     type: String,
     required: true,
-    unique: true, // Ensures the folder ID is unique in our DB
+    unique: true,
   },
-  // -------------------------
   avatar: {
     type: String,
   },

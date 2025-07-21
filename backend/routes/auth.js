@@ -8,6 +8,8 @@ const { v4: uuidv4 } = require('uuid'); // For generating unique folder names
 const User = require('../models/User');
 const { createFolder } = require('../services/videoService');
 
+const FRONTEND_URL = process.env.FRONTEND_URL;
+
 // --- GitHub Authentication Routes ---
 
 // 1. Initial request to GitHub
@@ -16,10 +18,10 @@ router.get('/github', passport.authenticate('github', { scope: ['user:email'] })
 // 2. GitHub callback URL
 router.get(
   '/github/callback',
-  passport.authenticate('github', { failureRedirect: 'http://localhost:5173/login' }),
+  passport.authenticate('github', { failureRedirect: `${FRONTEND_URL}/login` }),
   (req, res) => {
     // Successful authentication, redirect to the frontend homepage.
-    res.redirect('http://localhost:5173');
+    res.redirect(`${FRONTEND_URL}`);
   }
 );
 

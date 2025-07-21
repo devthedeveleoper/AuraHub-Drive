@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import API from '../services/api';
 import useAuthStore from '../store/authStore';
 import { toast } from 'react-hot-toast';
+import constants from '../utils/config';
 
 function LoginPage() {
   const [formData, setFormData] = useState({
@@ -40,7 +41,7 @@ function LoginPage() {
   return (
     <div className="max-w-sm mx-auto mt-10">
       <div className="text-center mb-4">
-        <a href="http://localhost:5000/api/auth/github">
+        <a href={`${constants.BACKEND_URL}/api/auth/github`}>
           <button
             type="button"
             className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-md transition-colors duration-300"

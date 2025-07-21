@@ -1,7 +1,8 @@
 import axios from 'axios';
+import constants from '../utils/config';
 
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api', // Your Node.js backend URL
+  baseURL: `${constants.BACKEND_URL}/api`, // Your Node.js backend URL
   withCredentials: true, // Important for sending session cookies
 });
 

@@ -18,7 +18,7 @@ function LocalUploadForm({ onUpload, isUploading }) {
           htmlFor="file"
           className="block text-gray-700 text-sm font-bold mb-2"
         >
-          Video File {"(15 MAX)"}
+          Video File {"(15 GB Max 🫠)"}
         </label>
         <input
           id="file"
