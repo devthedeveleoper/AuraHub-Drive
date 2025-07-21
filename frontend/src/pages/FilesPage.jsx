@@ -113,7 +113,7 @@ function FilesPage() {
       const urlResponse = await API.post("/videos/get-upload-url", {
         folderId: currentFolderId,
       });
-      const uploadUrl = urlResponse.data.result.url;
+      const uploadUrl = urlResponse.data.url;
 
       const formData = new FormData();
       formData.append("file", file);
