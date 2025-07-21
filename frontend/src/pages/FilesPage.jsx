@@ -20,6 +20,7 @@ import FolderItem from "../components/FolderItem";
 import FileItem from "../components/FileItem";
 import FileManagerToolbar from "../components/FileManagerToolbar";
 import UploadModal from "../components/UploadModal";
+import VideoPlayerModal from "../components/VideoPlayerModal";
 
 // Defines the grid layout classes for different card sizes
 const gridLayouts = {
@@ -39,6 +40,8 @@ function FilesPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [selectedFileId, setSelectedFileId] = useState(null);
 
   // State for toolbar controls
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,7 +113,7 @@ function FilesPage() {
       const urlResponse = await API.post("/videos/get-upload-url", {
         folderId: currentFolderId,
       });
-      const uploadUrl = urlResponse.data.url;
+      const uploadUrl = urlResponse.data.result.url;
 
       const formData = new FormData();
       formData.append("file", file);
@@ -162,7 +165,6 @@ function FilesPage() {
   };
 
   const handleRemoteUpload = async ({ url, title, description }) => {
-    setIsUploading(true);
     const currentFolderId = folderId || user.streamtapeFolderId;
     const promise = API.post("/videos/remote-upload", {
       url,
@@ -170,7 +172,6 @@ function FilesPage() {
       description,
       folderId: currentFolderId,
     });
-
     toast.promise(promise, {
       loading: "Initiating remote upload...",
       success: (res) => {
@@ -181,14 +182,6 @@ function FilesPage() {
       error: (err) =>
         err.response?.data?.msg || "Failed to start remote upload.",
     });
-
-    try {
-      await promise;
-    } catch (e) {
-      /* toast handles it */
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const handleRenameRequest = async (newName) => {
@@ -239,6 +232,15 @@ function FilesPage() {
     setIsRenameModalOpen(true);
   };
 
+  const handlePlayVideo = (file) => {
+    if (file.convert === "converted") {
+      setSelectedFileId(file.linkid);
+      setIsVideoModalOpen(true);
+    } else {
+      toast.error("This video is still processing and cannot be played yet.");
+    }
+  };
+
   const handleBack = () => {
     if (breadcrumb.length > 1) {
       const newPath = breadcrumb.slice(0, -1);
@@ -287,6 +289,11 @@ function FilesPage() {
         onRemoteUpload={handleRemoteUpload}
         isUploading={isUploading}
         progressData={progressData}
+      />
+      <VideoPlayerModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        fileId={selectedFileId}
       />
 
       <div className="max-w-7xl mx-auto mt-10 p-8 bg-white rounded-lg shadow-xl">
@@ -360,6 +367,7 @@ function FilesPage() {
                 size={cardSize}
                 onRename={(item) => openRenameModal(item, "file")}
                 onDelete={(item) => handleDeleteRequest(item, "file")}
+                onPlay={handlePlayVideo}
               />
             ))}
           </div>
