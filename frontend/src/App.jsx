@@ -4,12 +4,13 @@ import useAuthStore from "./store/authStore";
 import API from "./services/api";
 import { Toaster } from "react-hot-toast";
 import Navbar from "./components/Navbar";
-import Footer from './components/Footer';
+import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
+import UploadPage from "./pages/UploadPage";
 
 function App() {
   const { setUser, logout, stopLoading } = useAuthStore();
@@ -50,6 +51,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/upload"
+            element={
+              <ProtectedRoute>
+                <UploadPage />
               </ProtectedRoute>
             }
           />
