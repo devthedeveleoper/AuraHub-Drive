@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 const Video = require('../models/Video'); // Your Video model
 const User = require('../models/User'); // Your User model
+const redisClient = require('../config/redisClient');
 
 // Middleware to ensure user is authenticated
 const isAuthenticated = (req, res, next) => {
@@ -12,20 +13,32 @@ const isAuthenticated = (req, res, next) => {
   res.status(401).json({ msg: 'You are not authorized to view this resource' });
 };
 
+// Helper function to clear a specific folder's cache in Redis
+const clearFolderCache = async (folderId) => {
+    if (!folderId) return;
+    const cacheKey = `folder:${folderId}`;
+    await redisClient.del(cacheKey);
+    console.log(`[REDIS] CACHE CLEARED for ${cacheKey}`);
+};
+
 // --- Route 1: Get an Upload URL from FastAPI service ---
-router.get('/get-upload-url', isAuthenticated, async (req, res) => {
+router.post('/get-upload-url', isAuthenticated, async (req, res) => {
   try {
-    // We need the user's Streamtape folder ID
-    const user = await User.findById(req.user.id);
-    if (!user || !user.streamtapeFolderId) {
-      return res.status(404).json({ msg: 'User folder not found.' });
+    let { folderId } = req.body; // Get folderId from the request body
+
+    // If no folderId is provided by the client, default to the user's root folder
+    if (!folderId) {
+      const user = await User.findById(req.user.id);
+      if (!user || !user.streamtapeFolderId) {
+        return res.status(404).json({ msg: 'User root folder not found.' });
+      }
+      folderId = user.streamtapeFolderId;
     }
 
     const response = await axios.get('https://api.aurahub.fun/v1/get_upload_url', {
-      params: { folder: user.streamtapeFolderId }
+      params: { folder: folderId }
     });
 
-    // The FastAPI service returns { result: { url: '...' } }
     res.json(response.data);
   } catch (error) {
     console.error('Error fetching upload URL:', error.response ? error.response.data : error.message);
@@ -59,50 +72,59 @@ router.post('/save-video-metadata', isAuthenticated, async (req, res) => {
 
 // --- Route 3: Handle Remote URL Upload (Now saves metadata) ---
 router.post('/remote-upload', isAuthenticated, async (req, res) => {
-  const { url: videoUrl, title, description } = req.body;
+    // Now we correctly receive the folderId from the frontend request
+    const { url: videoUrl, title, description, folderId } = req.body;
 
-  if (!videoUrl || !title) {
-    return res.status(400).json({ msg: 'Missing video URL or title.' });
-  }
-
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user || !user.streamtapeFolderId) {
-      return res.status(404).json({ msg: 'User folder not found.' });
+    if (!videoUrl || !title) {
+        return res.status(400).json({ msg: 'Missing video URL or title.' });
     }
 
-    // 1. Initiate the remote upload with the FastAPI service
-    const remoteUploadResponse = await axios.post(
-      'https://api.aurahub.fun/v1/remote_upload/add',
-      null,
-      { params: { url: videoUrl, folder: user.streamtapeFolderId } }
-    );
-    
-    const remoteUploadId = remoteUploadResponse.data.id;
-    if (!remoteUploadId) {
-        return res.status(500).json({ msg: 'Failed to get a remote upload ID.' });
+    try {
+        let targetFolderId = folderId;
+
+        // If no folderId was provided from the frontend, default to the user's root folder
+        if (!targetFolderId) {
+            const user = await User.findById(req.user.id);
+            if (!user || !user.streamtapeFolderId) {
+                return res.status(404).json({ msg: 'User root folder not found.' });
+            }
+            targetFolderId = user.streamtapeFolderId;
+        }
+
+        // Initiate the remote upload with the FastAPI service, passing the correct folder ID
+        const remoteUploadResponse = await axios.post(
+            'https://api.aurahub.fun/v1/remote_upload/add',
+            null,
+            { params: { url: videoUrl, folder: targetFolderId } } // Use targetFolderId here
+        );
+        
+        const remoteUploadId = remoteUploadResponse.data.id;
+        if (!remoteUploadId) {
+            return res.status(500).json({ msg: 'Failed to get a remote upload ID.' });
+        }
+
+        // Create a new video document in our database to track it
+        const newVideo = new Video({
+            uploader: req.user.id,
+            title,
+            description,
+            remoteUploadId: remoteUploadId,
+            status: 'processing',
+        });
+        await newVideo.save();
+        
+        // Clear the cache for the folder where the upload was initiated
+        await clearFolderCache(targetFolderId);
+
+        res.status(202).json({ 
+            msg: 'Remote upload initiated and is now being tracked!',
+            video: newVideo 
+        });
+
+    } catch (error) {
+        console.error('Error initiating remote upload:', error.response ? error.response.data : error.message);
+        res.status(500).json({ msg: 'Server error while initiating remote upload.' });
     }
-
-    // 2. Create a new video document in our database to track it
-    const newVideo = new Video({
-        uploader: req.user.id,
-        title,
-        description,
-        remoteUploadId: remoteUploadId, // Save the ID for tracking
-        status: 'processing', // Mark the video as processing
-    });
-
-    await newVideo.save();
-
-    res.status(202).json({ 
-        msg: 'Remote upload initiated and is now being tracked!',
-        video: newVideo 
-    });
-
-  } catch (error) {
-    console.error('Error initiating remote upload:', error.response ? error.response.data : error.message);
-    res.status(500).json({ msg: 'Server error while initiating remote upload.' });
-  }
 });
 
 // --- CHECK REMOTE UPLOAD STATUS (WITH DETAILED LOGGING) ---

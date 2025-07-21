@@ -29,14 +29,11 @@ function Navbar() {
 
   const authLinks = (
     <ul className="flex items-center space-x-4">
-      <li>
-        <Link
-          to="/upload"
-          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-md text-sm"
-        >
-          Upload
-        </Link>
-      </li>
+        <li>
+            <Link to="/files" className="font-semibold text-gray-700 hover:text-blue-500">
+                My Files
+            </Link>
+        </li>
       <li>
         <Link
           to="/dashboard"

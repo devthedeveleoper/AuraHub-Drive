@@ -57,6 +57,8 @@ app.use('/api/auth', require('./routes/auth'));
 
 app.use('/api/videos', require('./routes/videos'));
 
+app.use('/api/files', require('./routes/files'));
+
 
 // --- Start the Server ---
 app.listen(PORT, () => {

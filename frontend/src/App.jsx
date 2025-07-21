@@ -10,7 +10,7 @@ import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
-import UploadPage from "./pages/UploadPage";
+import FilesPage from "./pages/FilesPage";
 
 function App() {
   const { setUser, logout, stopLoading } = useAuthStore();
@@ -55,10 +55,10 @@ function App() {
             }
           />
           <Route
-            path="/upload"
+            path="/files/:folderId?" // The '?' makes the folderId optional
             element={
               <ProtectedRoute>
-                <UploadPage />
+                <FilesPage />
               </ProtectedRoute>
             }
           />
