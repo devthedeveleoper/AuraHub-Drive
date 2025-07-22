@@ -127,10 +127,10 @@ router.post('/logout', (req, res, next) => {
 // "Me" endpoint to get current user data
 router.get('/me', (req, res) => {
   if (req.isAuthenticated()) {
-    // If the user is authenticated, send back their data
+    // This part is only reached if a valid session exists
     res.json(req.user);
   } else {
-    // Otherwise, send a 401 Unauthorized status
+    // This part is being triggered on refresh
     res.status(401).json({ msg: 'Not authenticated' });
   }
 });

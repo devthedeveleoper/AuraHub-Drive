@@ -35,7 +35,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Express Session Middleware with MongoStore
+app.set('trust proxy', 1);
+
+// --- Express Session Middleware with MongoStore (PRODUCTION READY) ---
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -45,12 +47,14 @@ app.use(
       mongoUrl: process.env.MONGO_URI,
       collectionName: 'sessions',
     }),
-    name: 'aurahub.sid', // Explicitly name the cookie
+    name: 'aurahub.sid',
     cookie: {
       secure: process.env.NODE_ENV === 'production',
-      httpOnly: true, // Prevents client-side JS from accessing the cookie
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Must be 'lax' for localhost development
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      // Set the domain for the cookie in production to allow it to be sent across subdomains
+      domain: process.env.NODE_ENV === 'production' ? `.${process.env.FRONTEND_URL}` : undefined
     }
   })
 );
