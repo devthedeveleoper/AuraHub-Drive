@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const passport = require('passport');
-const { v4: uuidv4 } = require('uuid'); // For generating unique folder names
+const { v4: uuidv4 } = require('uuid');
 
-// Bring in User Model and Video Service
+// Import User Model and Video Service
 const User = require('../models/User');
 const { createFolder } = require('../services/videoService');
 
-const FRONTEND_URL = process.env.FRONTEND_URL;
+// Get the frontend URL from environment variables for safe redirects
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // --- GitHub Authentication Routes ---
 
@@ -20,17 +21,19 @@ router.get(
   '/github/callback',
   passport.authenticate('github', { failureRedirect: `${FRONTEND_URL}/login` }),
   (req, res) => {
-    // Successful authentication, redirect to the frontend homepage.
-    res.redirect(`${FRONTEND_URL}`);
+    // On successful authentication, redirect to the frontend dashboard.
+    res.redirect(`${FRONTEND_URL}/dashboard`);
   }
 );
 
-// --- Register Route ---
+
+// --- Classic Authentication Routes ---
+
+// Register Route
 router.post('/register', async (req, res) => {
   const { name, email, password, password2 } = req.body;
   const lowerCaseEmail = email.toLowerCase();
 
-  // 1. Basic Validation
   if (!name || !email || !password || !password2) {
     return res.status(400).json({ msg: 'Please enter all fields' });
   }
@@ -42,35 +45,29 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // 2. Check if user already exists
     const existingUser = await User.findOne({ email: lowerCaseEmail });
     if (existingUser) {
       return res.status(400).json({ msg: 'Email already registered' });
     }
 
-    // 3. Create user folder on Streamtape
-    const folderName = uuidv4(); // Generate a unique ID for the folder
+    const folderName = uuidv4();
     const folderId = await createFolder(folderName);
     if (!folderId) {
-        // This will trigger if createFolder throws an error
-        return res.status(500).json({ msg: 'Could not create user storage. Please try again later.' });
+        return res.status(500).json({ msg: 'Could not create user storage.' });
     }
 
-    // 4. Create new user object
     const newUser = new User({
       name,
       email: lowerCaseEmail,
       password,
-      streamtapeFolderId: folderId // Save the returned folder ID
+      streamtapeFolderId: folderId
     });
 
-    // 5. Hash Password and Save User
     const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(newUser.password, salt);
-    newUser.password = hash;
+    newUser.password = await bcrypt.hash(newUser.password, salt);
 
     await newUser.save();
-    res.status(201).json({ msg: 'You are now registered and can log in!', userId: newUser.id });
+    res.status(201).json({ msg: 'You are now registered and can log in!' });
 
   } catch (error) {
     console.error('Registration Error:', error);
@@ -78,59 +75,35 @@ router.post('/register', async (req, res) => {
   }
 });
 
-
-// --- Login Route ---
-router.post('/login', (req, res, next) => {
-  passport.authenticate('local', (err, user, info) => {
-    if (err) return next(err);
-    if (!user) {
-        return res.status(400).json({ msg: info.message || 'Login failed.' });
-    }
-    req.logIn(user, (err) => {
-        if (err) return next(err);
-        return res.json({
-            msg: 'Successfully authenticated',
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email
-            }
-        });
-    });
-  })(req, res, next);
+// Login Route
+router.post('/login', passport.authenticate('local'), (req, res) => {
+  // If this function is called, authentication was successful.
+  // Passport automatically handles the session and attaches the full user object to req.user.
+  res.status(200).json(req.user);
 });
 
-
-// --- Logout Route ---
+// Logout Route
 router.post('/logout', (req, res, next) => {
-
   req.logout(function(err) {
-    if (err) {
-      console.error('Error from req.logout():', err);
-      return next(err);
-    }
-
+    if (err) { return next(err); }
     req.session.destroy(err => {
       if (err) {
-        console.error('Error destroying session:', err);
         return res.status(500).json({ msg: 'Failed to destroy session.' });
       }
-      // Ensure the correct cookie name is used
       res.clearCookie('aurahub.sid');
       return res.status(200).json({ msg: 'Logout successful.' });
     });
   });
 });
 
+
 // --- Session Management Route ---
 
-// "Me" endpoint to get current user data
+// "Me" endpoint to get current user data from the session
 router.get('/me', (req, res) => {
   if (req.isAuthenticated()) {
-    // This part is only reached if a valid session exists
     res.json(req.user);
   } else {
-    // This part is being triggered on refresh
     res.status(401).json({ msg: 'Not authenticated' });
   }
 });
