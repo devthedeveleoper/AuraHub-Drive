@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
 const passport = require('passport');
-const MongoStore = require('connect-mongo'); // <-- Import connect-mongo
+const MongoStore = require('connect-mongo');
 const connectDB = require('./config/db');
 require('dotenv').config();
 
@@ -15,29 +15,28 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// --- Trust Proxy Setting (CRITICAL FOR PRODUCTION) ---
+// This tells Express to trust the headers sent by Render's proxy.
+app.set('trust proxy', 1);
+
+// --- CORS Configuration ---
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
 
 app.use(cors({
-  // The origin option can be a function that checks if the request's origin is in our allowed list
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
-    return callback(null, true);
   },
-  credentials: true, // This is crucial for sessions and cookies
+  credentials: true,
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.set('trust proxy', 1);
-
-// --- Express Session Middleware with MongoStore (PRODUCTION READY) ---
+// --- Express Session Middleware (PRODUCTION READY) ---
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -53,28 +52,20 @@ app.use(
       httpOnly: true,
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-      // Set the domain for the cookie in production to allow it to be sent across subdomains
-      domain: process.env.NODE_ENV === 'production' ? `.${process.env.FRONTEND_URL}` : undefined
+      // Set the domain for the cookie in production
+      domain: process.env.NODE_ENV === 'production' ? `.${process.env.DOMAIN}` : undefined
     }
   })
 );
 
-// Passport Middleware (must be after session)
+// Passport Middleware
 app.use(passport.initialize());
 app.use(passport.session());
 
-
 // --- Routes ---
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to the AuraHub main API! 🚀' });
-});
-
 app.use('/api/auth', require('./routes/auth'));
-
 app.use('/api/videos', require('./routes/videos'));
-
 app.use('/api/files', require('./routes/files'));
-
 
 // --- Start the Server ---
 app.listen(PORT, () => {
